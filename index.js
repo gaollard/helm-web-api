@@ -112,7 +112,7 @@ app.get('/health', async (req, res) => {
       });
     }
   })
-})``
+})
 
 /**
  * Deletes an already installed chart, identified by its release name
