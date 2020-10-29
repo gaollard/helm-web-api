@@ -1,0 +1,95 @@
+1、各个image推入集群的registry中（tiller chartmuseum helm-web-api） ：算了，还是使用安装时的镜像吧。 防止被删除？
+2、使用 chartmuseum yaml文件部署chartmuseum chart仓库，安装在pase-system命名空间下
+3、使用tiller yaml文件部署helm tiller服务器
+4、拷贝helm二进制文件到master节点，并配置可执行，并添加chartmuseum仓库地址
+5、把helm-web-api对应的chart导入chartmuseum仓库，并通过helm安装helm-web-api
+
+6、后续都是通过命令行上传chart，安装chart。
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+docker pull chartmuseum/chartmuseum:v0.8.2
+docker tag chartmuseum/chartmuseum:v0.8.2 192.168.92.139:5000/pase/chartmuseum:v0.8.2
+docker push 192.168.92.139:5000/pase/chartmuseum:v0.8.2
+
+docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.12.3
+docker tag registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.12.3 192.168.92.139:5000/pase/tiller:v2.12.3
+docker push 192.168.92.139:5000/pase/tiller:v2.12.3
+
+
+docker push 192.168.92.139:5000/pase/tiller:v2.12.3
+
+
+
+oc new-project pase-helm
+
+>> 在K8S集群安装helm 仓库 chartmuseum
+   使用deployment部署chartmuseum
+
+
+
+>>在K8S集群的master安装helm，便于调试。生产实际对外的是helm-api
+1、下载二进制文件
+    wget -q  http://192.168.92.139/other/kubernetes-helm/${HELM_VERSION}/helm   -O /usr/local/bin/helm   \
+        && chmod +x /usr/local/bin/helm
+
+2、设置仓库包
+    helm init --client-only --stable-repo-url   https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+    helm repo remove stable
+    helm repo list
+
+
+>> 在K8S集群安装Tiller
+    2、在K8S集群总安装tiller
+    export TILLER_NAMESPACE=kube-system
+    #wget https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml
+    wget http://192.168.92.139/other/tiller-template.yaml
+    sed -i "s/gcr.io\/kubernetes-helm/192.168.92.139:5000\/pase/g" tiller-template.yaml
+
+    oc process -f tiller-template.yaml \
+      -p TILLER_NAMESPACE="${TILLER_NAMESPACE}" -p HELM_VERSION=v2.12.3 | \
+      oc create -f - -n kube-system
+
+    3、登录K8S Master，对tiller进行授权
+    echo export TILLER_NAMESPACE=kube-system >> ~/.bash_profile
+    oc policy add-role-to-user edit "system:serviceaccount:kube-system:tiller"
+    oc adm policy add-cluster-role-to-user cluster-admin  system:serviceaccount:kube-system:tiller
+
+    4、创建service，对外保留tiller，这个步骤应该放入 tiller-template.yaml中，合并到第二步，晚点时候再搞。
+        创建service，此service被kubeapps程序所使用。
+        oc create -f - <<EOF
+        apiVersion: v1
+        kind: Service
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: helm
+            name: tiller
+          name: tiller-deploy
+          namespace: kube-system
+        spec:
+          ports:
+          - name: tiller
+            port: 44134
+            targetPort: tiller
+          selector:
+            app: helm
+            name: tiller
+          type: ClusterIP
+        status:
+          loadBalancer: {}
+        EOF
+    5、查看helm安装情况
+         helm repo list
+         helm version
+
+
+
+   2、在集群安装helm插件，便于push测试
+   helm plugin install https://github.com/chartmuseum/helm-push
+
+>> 在K8S集群部署helm-api，对外暴露服务
+   helm install on-demand-micro-services-deployment -n helm-service --namespace=kube-system
+
+
