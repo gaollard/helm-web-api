@@ -97,19 +97,13 @@ app.get('/health', async (req, res) => {
   request({ url: url, method: 'GET' }, function (_err, _res, body) {
     console.log('_err >>>> ', _err)
     console.log('body >>>> ', _err)
-
     if (!_err) {
-      res.json({
-        success: true,
-        msg: "",
-        data: body
-      });
+      res.statusCode = 500;
+      // res.json(body);
+      res.send(body);
     } else {
-      res.json({
-        success: false,
-        msg: _err,
-        data: body
-      });
+      res.statusCode = 200;
+      res.send(body);
     }
   })
 })
