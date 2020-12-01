@@ -1,7 +1,7 @@
 #编译镜像
 docker build . -t 192.168.92.139:5000/pase/helm-web-api:v1.0
 
-docker build . -t 30.23.18.178:80/pase/helm-web-api:v1.2.2.RELEASE
+docker build . -t 30.23.18.178:80/pase/helm-web-api:v1.2.5.RELEASE
 
 #推送镜像仓库
 docker push  192.168.92.139:5000/pase/helm-web-api:v1.0

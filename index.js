@@ -97,9 +97,8 @@ app.get('/health', async (req, res) => {
   request({ url: url, method: 'GET' }, function (_err, _res, body) {
     console.log('_err >>>> ', _err)
     console.log('body >>>> ', _err)
-    if (!_err) {
+    if (_err) {
       res.statusCode = 500;
-      // res.json(body);
       res.send(body);
     } else {
       res.statusCode = 200;
